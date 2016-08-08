@@ -61,7 +61,8 @@ class DirectKafkaInputDStream[
     ssc_ : StreamingContext,
     val kafkaParams: Map[String, String],
     val fromOffsets: Map[TopicAndPartition, Long],
-    messageHandler: MessageAndMetadata[K, V] => R
+    messageHandler: MessageAndMetadata[K, V] => R,
+    maxRatePerPartition: Option[Int] = None
   ) extends InputDStream[R](ssc_) with Logging {
   val maxRetries = context.sparkContext.getConf.getInt(
     "spark.streaming.kafka.maxRetries", 1)
@@ -87,8 +88,12 @@ class DirectKafkaInputDStream[
 
   protected val kc = new KafkaCluster(kafkaParams)
 
-  private val maxRateLimitPerPartition: Int = context.sparkContext.getConf.getInt(
-      "spark.streaming.kafka.maxRatePerPartition", 0)
+  private val maxRateLimitPerPartition: Int = {
+    maxRatePerPartition.getOrElse{
+      context.sparkContext.getConf.getInt(
+        "spark.streaming.kafka.maxRatePerPartition", 0)
+    }
+  }
   protected def maxMessagesPerPartition: Option[Long] = {
     val estimatedRateLimit = rateController.map(_.getLatestRate().toInt)
     val numPartitions = currentOffsets.keys.size

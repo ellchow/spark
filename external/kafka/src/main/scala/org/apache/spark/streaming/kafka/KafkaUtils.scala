@@ -428,11 +428,12 @@ object KafkaUtils {
       ssc: StreamingContext,
       kafkaParams: Map[String, String],
       fromOffsets: Map[TopicAndPartition, Long],
-      messageHandler: MessageAndMetadata[K, V] => R
+      messageHandler: MessageAndMetadata[K, V] => R,
+      maxRatePerPartition: Option[Int] = None
   ): InputDStream[R] = {
     val cleanedHandler = ssc.sc.clean(messageHandler)
     new DirectKafkaInputDStream[K, V, KD, VD, R](
-      ssc, kafkaParams, fromOffsets, cleanedHandler)
+      ssc, kafkaParams, fromOffsets, cleanedHandler, maxRatePerPartition)
   }
 
   /**
@@ -477,13 +478,14 @@ object KafkaUtils {
     VD <: Decoder[V]: ClassTag] (
       ssc: StreamingContext,
       kafkaParams: Map[String, String],
-      topics: Set[String]
+      topics: Set[String],
+      maxRatePerPartition: Option[Int] = None
   ): InputDStream[(K, V)] = {
     val messageHandler = (mmd: MessageAndMetadata[K, V]) => (mmd.key, mmd.message)
     val kc = new KafkaCluster(kafkaParams)
     val fromOffsets = getFromOffsets(kc, kafkaParams, topics)
     new DirectKafkaInputDStream[K, V, KD, VD, (K, V)](
-      ssc, kafkaParams, fromOffsets, messageHandler)
+      ssc, kafkaParams, fromOffsets, messageHandler, maxRatePerPartition)
   }
 
   /**
